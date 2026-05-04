@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RainCast | Rainfall Prediction</title>
+    <!-- Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap"
+        rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <!-- Dataset -->
+    <script src="data.js"></script>
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-color: #0b1121;
+            --surface-color: #151e32;
+            --surface-border: #23344d;
+            --accent-color: #5bb4a2;
+            --accent-glow: rgba(91, 180, 162, 0.4);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --font-heading: 'Playfair Display', serif;
+            --font-body: 'DM Sans', sans-serif;
+            --season-monsoon: #4a8c9b;
+            --season-summer: #d19a66;
+            --season-winter: #738a9c;
+            --season-postmonsoon: #86a382;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-body);
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        h1,
+        h2,
+        h3,
+        h4 {
+            font-family: var(--font-heading);
+            font-weight: 600;
+        }
+
+        /* Nav */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            padding: 1rem 5%;
+            background: rgba(5, 14, 29, 0.8);
+            backdrop-filter: blur(10px);
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--surface-border);
+        }
+
+        .logo {
+            font-family: var(--font-heading);
+            font-size: 1.5rem;
+            color: var(--accent-color);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-main);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--accent-color);
+        }
+
+        .upload-wrapper {
+            position: relative;
+        }
+
+        .upload-btn {
+            background: linear-gradient(135deg, #0ea5e9, #38bdf8);
+            color: white;
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            font-family: var(--font-body);
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px var(--accent-glow);
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        .loader {
+            display: none;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid var(--accent-color);
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* General Section Layout */
+        section {
+            min-height: 100vh;
+            padding: 6rem 5% 4rem;
+            position: relative;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .section-header h2 {
+            font-size: 2.5rem;
+            color: var(--accent-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .section-header p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        /* Hero */
+        #hero {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding-top: 5rem;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #rain-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 1;
+            max-width: 800px;
+        }
+
+        .hero-title {
+            font-size: 4.5rem;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(to right, #ffffff, var(--accent-color));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-tagline {
+            font-size: 1.3rem;
+            color: var(--text-muted);
+            margin-bottom: 4rem;
+            font-weight: 400;
+        }
+
+        .hero-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 2rem;
+            width: 100%;
+            max-width: 1000px;
+        }
+
+        .stat-card {
+            background: rgba(15, 28, 50, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--surface-border);
+            padding: 2rem;
+            border-radius: 16px;
+            text-align: center;
+            transition: transform 0.3s, border-color 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--accent-color);
+        }
+
+        .stat-card i {
+            font-size: 2rem;
+            color: var(--accent-color);
+            margin-bottom: 1rem;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-family: var(--font-heading);
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 0.5rem;
+        }
+
+        /* Controls */
+        .controls-row {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .select-wrapper {
+            position: relative;
+            min-width: 200px;
+        }
+
+        select {
+            appearance: none;
+            width: 100%;
+            background: var(--surface-color);
+            color: #fff;
+            border: 1px solid var(--surface-border);
+            padding: 0.8rem 1rem;
+            border-radius: 8px;
+            font-family: var(--font-body);
+            cursor: pointer;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        select:focus {
+            border-color: var(--accent-color);
+        }
+
+        .select-wrapper::after {
+            content: '\f107';
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            pointer-events: none;
+        }
+
+        /* Cards Layout */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .metric-card {
+            background: var(--surface-color);
+            border: 1px solid var(--surface-border);
+            padding: 1.5rem;
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--accent-color);
+        }
+
+        .metric-title {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-family: var(--font-heading);
+            color: #fff;
+        }
+
+        .metric-unit {
+            font-size: 1rem;
+            color: var(--text-muted);
+        }
+
+        .chart-container {
+            background: var(--surface-color);
+            border: 1px solid var(--surface-border);
+            padding: 1.5rem;
+            border-radius: 12px;
+            height: 400px;
+            width: 100%;
+        }
+
+        /* Station Comparison Tool */
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .station-col {
+            background: var(--surface-color);
+            border: 1px solid var(--surface-border);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+
+        .station-col h3 {
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--surface-border);
+            padding-bottom: 0.5rem;
+        }
+
+        .compare-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .mini-stat {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 1rem;
+            border-radius: 8px;
+        }
+
+        .mini-stat-title {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .mini-stat-value {
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+
+        /* Predictor */
+        .predictor-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            background: var(--surface-color);
+            border: 1px solid var(--surface-border);
+            border-radius: 16px;
+            padding: 3rem;
+            align-items: center;
+        }
+
+        .sliders-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .slider-val {
+            color: var(--accent-color);
+            font-weight: bold;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #1e2c48;
+            border-radius: 4px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--accent-color);
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+            transition: transform 0.1s;
+        }
+
+        input[type="range"]:active::-webkit-slider-thumb {
+            transform: scale(1.2);
+        }
+
+        .gauge-container {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            margin: 0 auto;
+        }
+
+        .gauge-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .gauge-prob {
+            font-size: 3.5rem;
+            font-family: var(--font-heading);
+            color: #fff;
+            line-height: 1;
+        }
+
+        .gauge-label {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+
+        .match-count {
+            text-align: center;
+            margin-top: 1rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        /* Seasonal Table */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 2rem;
+            background: var(--surface-color);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--surface-border);
+        }
+
+        .data-table th {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--accent-color);
+            font-weight: 600;
+        }
+
+        .data-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .season-dot {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        /* Helper Classes */
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.8s cubic-bezier(0.5, 0, 0, 1);
+        }
+
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .data-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(5, 14, 29, 0.95);
+            z-index: 90;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            transition: opacity 0.5s;
+        }
+
+        .data-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .data-overlay-content {
+            text-align: center;
+            max-width: 500px;
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            color: var(--accent-color);
+            margin-bottom: 1.5rem;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+
+            0%,
+            20%,
+            50%,
+            80%,
+            100% {
+                transform: translateY(0);
+            }
+
+            40% {
+                transform: translateY(-20px);
+            }
+
+            60% {
+                transform: translateY(-10px);
+            }
+        }
+
+        @media (max-width: 1024px) {
+            .hero-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .comparison-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .predictor-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+
+            .hero-title {
+                font-size: 3rem;
+            }
+
+            .hero-stats {
+                grid-template-columns: 1fr;
+            }
+
+            section {
+                padding-top: 5rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+
+
+    <!-- Navigation -->
+    <nav>
+        <div class="logo">
+            <i class="fa-solid fa-cloud-rain"></i> RainCast
+        </div>
+        <ul class="nav-links">
+            <li><a href="#dashboard">Dashboard</a></li>
+            <li><a href="#comparison">Compare</a></li>
+            <li><a href="#predictor">Predictor</a></li>
+            <li><a href="#seasonal">Seasonal</a></li>
+        </ul>
+
+    </nav>
+
+    <!-- Section 1: Hero -->
+    <section id="hero">
+        <canvas id="rain-canvas"></canvas>
+        <div class="hero-content reveal">
+            <h1 class="hero-title">Predicting Rainfall with Probability</h1>
+            <h2 class="hero-tagline">An interactive, data-driven exploration of India's weather patterns from 2015 to
+                2025.</h2>
+
+            <div class="hero-stats">
+                <div class="stat-card">
+                    <i class="fa-solid fa-database"></i>
+                    <div class="stat-value" id="stat-records">0</div>
+                    <div class="stat-label">Total Data Points</div>
+                </div>
+                <div class="stat-card">
+                    <i class="fa-solid fa-location-dot"></i>
+                    <div class="stat-value" id="stat-stations">0</div>
+                    <div class="stat-label">Stations</div>
+                </div>
+                <div class="stat-card">
+                    <i class="fa-solid fa-calendar-days"></i>
+                    <div class="stat-value" id="stat-years">0</div>
+                    <div class="stat-label">Years of Data</div>
+                </div>
+                <div class="stat-card">
+                    <i class="fa-solid fa-map"></i>
+                    <div class="stat-value" id="stat-states">0</div>
+                    <div class="stat-label">States Covered</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 2: Dashboard -->
+    <section id="dashboard" class="reveal">
+        <div class="section-header">
+            <h2>Rainfall Probability Dashboard</h2>
+            <p>Analyze historical probability and average rainfall for specific stations and months.</p>
+        </div>
+
+        <div class="controls-row">
+            <div class="select-wrapper">
+                <select id="dash-station-select">
+                    <option value="">Select Station...</option>
+                </select>
+            </div>
+            <div class="select-wrapper">
+                <select id="dash-month-select">
+                    <option value="All">All Months</option>
+                    <option value="1">January</option>
+                    <option value="2">February</option>
+                    <option value="3">March</option>
+                    <option value="4">April</option>
+                    <option value="5">May</option>
+                    <option value="6">June</option>
+                    <option value="7">July</option>
+                    <option value="8">August</option>
+                    <option value="9">September</option>
+                    <option value="10">October</option>
+                    <option value="11">November</option>
+                    <option value="12">December</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-title">Probability of Rain (>0mm)</div>
+                <div class="metric-value" id="dash-prob">-- <span class="metric-unit">%</span></div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">Average Rainfall (on rainy days)</div>
+                <div class="metric-value" id="dash-avg">-- <span class="metric-unit">mm</span></div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">Max Recorded Rainfall</div>
+                <div class="metric-value" id="dash-max">-- <span class="metric-unit">mm</span></div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="dash-chart"></canvas>
+        </div>
+    </section>
+
+    <!-- Section 3: Comparison -->
+    <section id="comparison" class="reveal">
+        <div class="section-header">
+            <h2>Station Comparison Tool</h2>
+            <p>Compare the meteorological profiles of two distinct locations.</p>
+        </div>
+
+        <div class="controls-row">
+            <div class="select-wrapper">
+                <select id="comp-station1-select">
+                    <option value="">Select Station 1...</option>
+                </select>
+            </div>
+            <div style="color:var(--text-muted); align-self:center;">VS</div>
+            <div class="select-wrapper">
+                <select id="comp-station2-select">
+                    <option value="">Select Station 2...</option>
+                </select>
+            </div>
+            <div class="select-wrapper">
+                <select id="comp-season-select">
+                    <option value="All">All Seasons</option>
+                    <option value="Monsoon">Monsoon</option>
+                    <option value="Summer">Summer</option>
+                    <option value="Winter">Winter</option>
+                    <option value="Post-monsoon">Post-monsoon</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="comparison-grid">
+            <div class="station-col">
+                <h3 id="comp-title-1">Station 1</h3>
+                <div class="compare-stats">
+                    <div class="mini-stat">
+                        <div class="mini-stat-title">Avg Temp</div>
+                        <div class="mini-stat-value" id="comp-s1-temp">--°C</div>
+                    </div>
+                    <div class="mini-stat">
+                        <div class="mini-stat-title">Avg Humidity</div>
+                        <div class="mini-stat-value" id="comp-s1-hum">--%</div>
+                    </div>
+                    <div class="mini-stat">
+                        <div class="mini-stat-title">Avg Rainfall</div>
+                        <div class="mini-stat-value" id="comp-s1-rain">--mm</div>
+                    </div>
+                    <div class="mini-stat">
+                        <div class="mini-stat-title">Rainy Days</div>
+                        <div class="mini-stat-value" id="comp-s1-prob">--%</div>
+                    </div>
+                </div>
+            </div>
+            <div class="station-col">
+                <h3 id="comp-title-2">Station 2</h3>
+                <div class="compare-stats">
+                    <div class="mini-stat">
+                        <div class="mini-stat-title">Avg Temp</div>
+                        <div class="mini-stat-value" id="comp-s2-temp">--°C</div>
+                    </div>
+                    <div class="mini-stat">
+                        <div class="mini-stat-title">Avg Humidity</div>
+                        <div class="mini-stat-value" id="comp-s2-hum">--%</div>
+                    </div>
+                    <div class="mini-stat">
+                        <div class="mini-stat-title">Avg Rainfall</div>
+                        <div class="mini-stat-value" id="comp-s2-rain">--mm</div>
+                    </div>
+                    <div class="mini-stat">
+                        <div class="mini-stat-title">Rainy Days</div>
+                        <div class="mini-stat-value" id="comp-s2-prob">--%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="comp-chart"></canvas>
+        </div>
+    </section>
+
+    <!-- Section 4: Predictor -->
+    <section id="predictor" class="reveal">
+        <div class="section-header">
+            <h2>Conditions-Based Rain Predictor</h2>
+            <p>Adjust current conditions to find historical similarities and predict probability.</p>
+        </div>
+
+        <div class="predictor-container">
+            <div class="sliders-wrapper">
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <label>Humidity</label>
+                        <span class="slider-val" id="val-hum">50%</span>
+                    </div>
+                    <input type="range" id="slider-hum" min="0" max="100" value="50">
+                    <small style="color:var(--text-muted)">Historical scan: ±5%</small>
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <label>Temperature</label>
+                        <span class="slider-val" id="val-temp">20°C</span>
+                    </div>
+                    <input type="range" id="slider-temp" min="-15" max="45" value="20">
+                    <small style="color:var(--text-muted)">Historical scan: ±3°C</small>
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <label>Air Pressure</label>
+                        <span class="slider-val" id="val-pres">1013 hPa</span>
+                    </div>
+                    <input type="range" id="slider-pres" min="990" max="1035" value="1013">
+                    <small style="color:var(--text-muted)">Historical scan: ±5 hPa</small>
+                </div>
+            </div>
+
+            <div>
+                <div class="gauge-container">
+                    <canvas id="gauge-chart"></canvas>
+                    <div class="gauge-center">
+                        <div class="gauge-prob" id="pred-prob">--%</div>
+                        <div class="gauge-label">Chance of Rain</div>
+                    </div>
+                </div>
+                <div class="match-count" id="pred-matches">Matched 0 historical records</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 5: Seasonal Pattern Explorer -->
+    <section id="seasonal" class="reveal">
+        <div class="section-header">
+            <h2>Seasonal Pattern Explorer</h2>
+            <p>Discover distinct rainfall curves across different geographical seasons.</p>
+        </div>
+
+        <div class="controls-row">
+            <div class="select-wrapper">
+                <select id="season-station-select">
+                    <option value="">Select Station...</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="chart-container" style="height: 450px;">
+            <canvas id="season-chart"></canvas>
+        </div>
+
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Season</th>
+                    <th>Color Profile</th>
+                    <th>Months Span</th>
+                    <th>Average Rainfall (mm)</th>
+                </tr>
+            </thead>
+            <tbody id="season-table-body">
+                <!-- Injected via JS -->
+            </tbody>
+        </table>
+    </section>
+
+    <script>
+        // --- 1. GLOBALS & STATE ---
+        let rawData = [];
+        let stationsList = [];
+        let isDataLoaded = false;
+
+        // Chart instances for destruction
+        let dashChartInst = null;
+        let compChartInst = null;
+        let gaugeChartInst = null;
+        let seasonChartInst = null;
+
+        // Constants
+        const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const SEASON_COLORS = {
+            "Monsoon": "#4a8c9b",
+            "Summer": "#d19a66",
+            "Winter": "#738a9c",
+            "Post-monsoon": "#86a382"
+        };
+
+        // --- 2. LOAD DATA AUTOMATICALLY ---
+        window.addEventListener('DOMContentLoaded', () => {
+            if (typeof WEATHER_DATA !== 'undefined') {
+                const monthMap = { "January": 1, "February": 2, "March": 3, "April": 4, "May": 5, "June": 6, "July": 7, "August": 8, "September": 9, "October": 10, "November": 11, "December": 12 };
+                rawData = WEATHER_DATA.map(row => ({
+                    date: row.date,
+                    month: typeof row.month === 'string' && monthMap[row.month] ? monthMap[row.month] : parseInt(row.month),
+                    season: row.season,
+                    station: row.station,
+                    state: row.state,
+                    avgTemp: parseFloat(row.avg_temp),
+                    minTemp: parseFloat(row.min_temp),
+                    maxTemp: parseFloat(row.max_temp),
+                    windSpeed: parseFloat(row.wind_speed),
+                    pressure: parseFloat(row.pressure),
+                    rain: parseFloat(row.rainfall || 0),
+                    humidity: parseFloat(row.humidity || 0)
+                })).filter(r => r.station && !isNaN(r.month));
+
+                processInitialData();
+            } else {
+                console.error("WEATHER_DATA is not defined. Ensure data.js is loaded correctly.");
+            }
+        });
+
+        const processInitialData = () => {
+            if (rawData.length === 0) return;
+            isDataLoaded = true;
+
+            // Extract unique stations & states
+            stationsList = [...new Set(rawData.map(d => d.station))].sort();
+            const statesList = [...new Set(rawData.map(d => d.state))];
+
+            // Animate Stats
+            animateValue("stat-records", 0, rawData.length, 1500, "+");
+            animateValue("stat-stations", 0, stationsList.length, 1000, "");
+            animateValue("stat-years", 0, 10, 1000, ""); // 2015-2025 is approx 10
+            animateValue("stat-states", 0, statesList.length, 1000, "");
+
+            // Populate Dropdowns
+            populateSelects();
+
+            // Initialize all views with default filters
+            updateDashboard();
+            updateComparison();
+            updatePredictor();
+            updateSeasonalExplorer();
+        };
+
+        const populateSelects = () => {
+            const sels = ['dash-station-select', 'comp-station1-select', 'comp-station2-select', 'season-station-select'];
+            sels.forEach(id => {
+                const el = document.getElementById(id);
+                el.innerHTML = '';
+                if (id !== 'season-station-select') {
+                    // Dashboard has 'All Months', here we just need to populate stations.
+                }
+                stationsList.forEach((st, idx) => {
+                    const opt = document.createElement('option');
+                    opt.value = st;
+                    opt.textContent = st;
+                    if (id === 'comp-station2-select' && idx === 1) opt.selected = true;
+                    el.appendChild(opt);
+                });
+            });
+        };
+
+        // --- 3. HELPER FUNCTIONS ---
+        const animateValue = (id, start, end, duration, suffix) => {
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                // Ease out
+                const easeOut = 1 - Math.pow(1 - progress, 3);
+                document.getElementById(id).innerText = Math.floor(easeOut * (end - start) + start).toLocaleString() + suffix;
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
+                }
+            };
+            window.requestAnimationFrame(step);
+        };
+
+        // Chart.js default config
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.font.family = "'DM Sans', sans-serif";
+
+        // --- 4. SECTION LOGIC ---
+
+        // ================= SECTION 2: DASHBOARD =================
+        const updateDashboard = () => {
+            if (!isDataLoaded) return;
+            const st = document.getElementById('dash-station-select').value;
+            const mo = document.getElementById('dash-month-select').value;
+
+            // Filter data
+            let d = rawData;
+            if (st) d = d.filter(r => r.station === st);
+            if (mo !== 'All') d = d.filter(r => r.month === parseInt(mo));
+
+            if (d.length === 0) return;
+
+            const rainDays = d.filter(r => r.rain > 0);
+            const prob = (rainDays.length / d.length) * 100;
+            const avgRain = rainDays.length ? rainDays.reduce((sum, r) => sum + r.rain, 0) / rainDays.length : 0;
+            const maxRain = d.reduce((max, r) => r.rain > max ? r.rain : max, 0);
+
+            document.getElementById('dash-prob').innerHTML = `${prob.toFixed(1)} <span class="metric-unit">%</span>`;
+            document.getElementById('dash-avg').innerHTML = `${avgRain.toFixed(1)} <span class="metric-unit">mm</span>`;
+            document.getElementById('dash-max').innerHTML = `${maxRain.toFixed(1)} <span class="metric-unit">mm</span>`;
+
+            // Prepare chart data (Avg per month for selected station)
+            let chartD = rawData;
+            if (st) chartD = chartD.filter(r => r.station === st);
+
+            let monthlyAvgs = new Array(12).fill(0);
+            let monthlyCounts = new Array(12).fill(0);
+
+            chartD.forEach(r => {
+                if (r.month >= 1 && r.month <= 12) {
+                    monthlyAvgs[r.month - 1] += r.rain;
+                    monthlyCounts[r.month - 1] += 1;
+                }
+            });
+
+            monthlyAvgs = monthlyAvgs.map((sum, i) => monthlyCounts[i] ? sum / monthlyCounts[i] : 0);
+
+            // Build chart
+            const ctx = document.getElementById('dash-chart').getContext('2d');
+            if (dashChartInst) dashChartInst.destroy();
+
+            // Highlight color if specific month is chosen
+            const bgColors = new Array(12).fill('rgba(91, 180, 162, 0.4)');
+            const brColors = new Array(12).fill('rgba(91, 180, 162, 1)');
+            if (mo !== 'All') {
+                bgColors[parseInt(mo) - 1] = 'rgba(209, 154, 102, 0.8)';
+                brColors[parseInt(mo) - 1] = 'rgba(209, 154, 102, 1)';
+            }
+
+            dashChartInst = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: MONTHS,
+                    datasets: [{
+                        label: 'Average Rainfall (mm)',
+                        data: monthlyAvgs,
+                        backgroundColor: bgColors,
+                        borderColor: brColors,
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#1e2c48' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        };
+
+        ['dash-station-select', 'dash-month-select'].forEach(id =>
+            document.getElementById(id).addEventListener('change', updateDashboard));
+
+        // ================= SECTION 3: COMPARISON =================
+        const getStats = (data) => {
+            if (data.length === 0) return { temp: 0, hum: 0, rain: 0, prob: 0 };
+            const tempSum = data.reduce((s, r) => s + r.avgTemp, 0);
+            const humSum = data.reduce((s, r) => s + r.humidity, 0);
+            const rainSum = data.reduce((s, r) => s + r.rain, 0);
+            const rainDays = data.filter(r => r.rain > 0).length;
+
+            return {
+                temp: tempSum / data.length,
+                hum: humSum / data.length,
+                rain: rainSum / data.length, // Avg across all days
+                prob: (rainDays / data.length) * 100
+            };
+        };
+
+        const updateComparison = () => {
+            if (!isDataLoaded) return;
+            const s1 = document.getElementById('comp-station1-select').value;
+            const s2 = document.getElementById('comp-station2-select').value;
+            const season = document.getElementById('comp-season-select').value;
+
+            document.getElementById('comp-title-1').innerText = s1;
+            document.getElementById('comp-title-2').innerText = s2;
+
+            let d1 = rawData.filter(r => r.station === s1);
+            let d2 = rawData.filter(r => r.station === s2);
+
+            if (season !== 'All') {
+                d1 = d1.filter(r => r.season === season);
+                d2 = d2.filter(r => r.season === season);
+            }
+
+            const st1 = getStats(d1);
+            const st2 = getStats(d2);
+
+            document.getElementById('comp-s1-temp').innerText = `${st1.temp.toFixed(1)}°C`;
+            document.getElementById('comp-s1-hum').innerText = `${st1.hum.toFixed(1)}%`;
+            document.getElementById('comp-s1-rain').innerText = `${st1.rain.toFixed(2)}mm`;
+            document.getElementById('comp-s1-prob').innerText = `${st1.prob.toFixed(1)}%`;
+
+            document.getElementById('comp-s2-temp').innerText = `${st2.temp.toFixed(1)}°C`;
+            document.getElementById('comp-s2-hum').innerText = `${st2.hum.toFixed(1)}%`;
+            document.getElementById('comp-s2-rain').innerText = `${st2.rain.toFixed(2)}mm`;
+            document.getElementById('comp-s2-prob').innerText = `${st2.prob.toFixed(1)}%`;
+
+            // Grouped Bar chart per season
+            const seasonsList = ["Monsoon", "Summer", "Winter", "Post-monsoon"];
+
+            const getSeasonRain = (dataList, seasonName) => {
+                const sub = dataList.filter(r => r.season === seasonName);
+                if (sub.length === 0) return 0;
+                return sub.reduce((s, r) => s + r.rain, 0) / sub.length;
+            };
+
+            const dataS1 = seasonsList.map(sn => getSeasonRain(rawData.filter(r => r.station === s1), sn));
+            const dataS2 = seasonsList.map(sn => getSeasonRain(rawData.filter(r => r.station === s2), sn));
+
+            const ctx = document.getElementById('comp-chart').getContext('2d');
+            if (compChartInst) compChartInst.destroy();
+
+            compChartInst = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: seasonsList,
+                    datasets: [
+                        {
+                            label: s1,
+                            data: dataS1,
+                            backgroundColor: '#5bb4a2',
+                            borderRadius: 4
+                        },
+                        {
+                            label: s2,
+                            data: dataS2,
+                            backgroundColor: '#d19a66',
+                            borderRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#1e2c48' }, title: { display: true, text: 'Avg Rainfall (mm)' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        };
+
+        ['comp-station1-select', 'comp-station2-select', 'comp-season-select'].forEach(id =>
+            document.getElementById(id).addEventListener('change', updateComparison));
+
+
+        // ================= SECTION 4: PREDICTOR =================
+        const setupPredictor = () => {
+            const updateGaugeChart = (prob) => {
+                const ctx = document.getElementById('gauge-chart').getContext('2d');
+                if (gaugeChartInst) gaugeChartInst.destroy();
+                gaugeChartInst = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        datasets: [{
+                            data: [prob, 100 - prob],
+                            backgroundColor: ['#5bb4a2', '#23344d'],
+                            borderWidth: 0,
+                            cutout: '80%',
+                            circumference: 270,
+                            rotation: 225
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { tooltip: { enabled: false } }, animation: { animateScale: true } }
+                });
+            };
+
+            const runPrediction = () => {
+                if (!isDataLoaded) return;
+                const h = parseFloat(document.getElementById('slider-hum').value);
+                const t = parseFloat(document.getElementById('slider-temp').value);
+                const p = parseFloat(document.getElementById('slider-pres').value);
+
+                document.getElementById('val-hum').innerText = `${h}%`;
+                document.getElementById('val-temp').innerText = `${t}°C`;
+                document.getElementById('val-pres').innerText = `${p} hPa`;
+
+                // Calculate similarities
+                const matches = rawData.filter(r =>
+                    Math.abs(r.humidity - h) <= 5 &&
+                    Math.abs(r.avgTemp - t) <= 3 &&
+                    Math.abs(r.pressure - p) <= 5
+                );
+
+                const c = matches.length;
+                document.getElementById('pred-matches').innerText = `Matched ${c.toLocaleString()} historical records`;
+
+                let prob = 0;
+                if (c > 0) {
+                    const rainDays = matches.filter(r => r.rain > 0).length;
+                    prob = (rainDays / c) * 100;
+                }
+
+                document.getElementById('pred-prob').innerText = `${Math.round(prob)}%`;
+                updateGaugeChart(prob);
+            };
+
+            // Init empty gauge
+            updateGaugeChart(0);
+
+            ['slider-hum', 'slider-temp', 'slider-pres'].forEach(id =>
+                document.getElementById(id).addEventListener('input', runPrediction));
+
+            window.updatePredictor = runPrediction;
+        };
+        setupPredictor();
+
+
+        // ================= SECTION 5: SEASONAL EXPLORER =================
+        const updateSeasonalExplorer = () => {
+            if (!isDataLoaded) return;
+            const st = document.getElementById('season-station-select').value;
+            const d = rawData.filter(r => r.station === st);
+
+            const seasons = ["Monsoon", "Summer", "Winter", "Post-monsoon"];
+
+            // Build datasets for line chart
+            const datasets = [];
+            const tbody = document.getElementById('season-table-body');
+            tbody.innerHTML = '';
+
+            seasons.forEach(sn => {
+                const snData = d.filter(r => r.season === sn);
+
+                // Calculate monthly averages for this season
+                // We map 1-12. If a month has no data for this season, it becomes null.
+                let mAvg = new Array(12).fill(null);
+
+                if (snData.length > 0) {
+                    let sums = new Array(12).fill(0);
+                    let counts = new Array(12).fill(0);
+                    snData.forEach(r => {
+                        if (r.month >= 1 && r.month <= 12) {
+                            sums[r.month - 1] += r.rain;
+                            counts[r.month - 1] += 1;
+                        }
+                    });
+
+                    let activeMonths = [];
+
+                    for (let i = 0; i < 12; i++) {
+                        if (counts[i] > 0) {
+                            mAvg[i] = sums[i] / counts[i];
+                            activeMonths.push(MONTHS[i]);
+                        }
+                    }
+
+                    datasets.push({
+                        label: sn,
+                        data: mAvg,
+                        borderColor: SEASON_COLORS[sn],
+                        backgroundColor: SEASON_COLORS[sn],
+                        tension: 0.4,
+                        spanGaps: true, // Connect gaps to form continuous lines per season if scattered
+                        pointRadius: 4,
+                        borderWidth: 2
+                    });
+
+                    // Add to table
+                    const avgRain = snData.reduce((s, r) => s + r.rain, 0) / snData.length;
+
+                    // Month spans (e.g., Jun-Sep)
+                    const mSpan = activeMonths.length > 0 ? `${activeMonths[0]} - ${activeMonths[activeMonths.length - 1]}` : 'N/A';
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${sn}</td>
+                        <td><span class="season-dot" style="background:${SEASON_COLORS[sn]}"></span> <span style="text-transform: capitalize;">${SEASON_COLORS[sn]}</span></td>
+                        <td>${mSpan}</td>
+                        <td>${avgRain.toFixed(2)}</td>
+                    `;
+                    tbody.appendChild(tr);
+                }
+            });
+
+            // Draw line chart
+            const ctx = document.getElementById('season-chart').getContext('2d');
+            if (seasonChartInst) seasonChartInst.destroy();
+
+            seasonChartInst = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: MONTHS,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#1e2c48' }, title: { display: true, text: 'Avg Rainfall (mm)' } },
+                        x: { grid: { color: '#1e2c48' } }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#f8fafc' } }
+                    }
+                }
+            });
+        };
+
+        document.getElementById('season-station-select').addEventListener('change', updateSeasonalExplorer);
+
+
+        // --- SCROLL ANIMATIONS ---
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('active');
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+
+        // --- RAIN CANVAS ANIMATION ---
+        const initRainCanvas = () => {
+            const canvas = document.getElementById('rain-canvas');
+            const ctx = canvas.getContext('2d');
+            let width, height;
+            let particles = [];
+
+            const resize = () => {
+                width = canvas.width = window.innerWidth;
+                height = canvas.height = document.getElementById('hero').offsetHeight;
+            };
+            window.addEventListener('resize', resize);
+            resize();
+
+            for (let i = 0; i < 150; i++) {
+                particles.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    length: Math.random() * 20 + 10,
+                    velocity: Math.random() * 5 + 5,
+                    opacity: Math.random() * 0.5 + 0.1
+                });
+            }
+
+            const draw = () => {
+                ctx.clearRect(0, 0, width, height);
+                ctx.lineWidth = 1.5;
+                ctx.lineCap = 'round';
+
+                particles.forEach(p => {
+                    ctx.strokeStyle = `rgba(91, 180, 162, ${p.opacity})`;
+                    ctx.beginPath();
+                    ctx.moveTo(p.x, p.y);
+                    ctx.lineTo(p.x, p.y + p.length);
+                    ctx.stroke();
+
+                    p.y += p.velocity;
+                    if (p.y > height) {
+                        p.y = -p.length;
+                        p.x = Math.random() * width;
+                    }
+                });
+
+                requestAnimationFrame(draw);
+            };
+            draw();
+        };
+        initRainCanvas();
+
+    </script>
+</body>
+
+</html>
